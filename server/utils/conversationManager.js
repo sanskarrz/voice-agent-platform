@@ -179,9 +179,8 @@ export class ConversationManager extends EventEmitter {
   processAudio(base64Audio) {
   // Forward audio to Deepgram
   if (this.deepgramService && this.deepgramService.isConnected) {
-    // Deepgram expects raw audio, not base64
-    const audioBuffer = Buffer.from(base64Audio, 'base64');
-    this.deepgramService.sendAudio(audioBuffer);
+    // Deepgram expects the base64 audio as-is from Twilio (it's already mulaw)
+    this.deepgramService.sendAudio(base64Audio);
     
     // Log every 100th audio packet to avoid spam
     if (!this.audioPacketCount) this.audioPacketCount = 0;

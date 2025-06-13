@@ -95,11 +95,9 @@ this.connection.on('error', (error) => {
  sendAudio(audioData) {
   if (this.connection && this.isConnected) {
     try {
-      // Make sure we're sending buffer data
-      const audioBuffer = Buffer.isBuffer(audioData) 
-        ? audioData 
-        : Buffer.from(audioData, 'base64');
-      
+      // Twilio sends base64-encoded mulaw audio
+      // Deepgram expects raw binary, so decode from base64
+      const audioBuffer = Buffer.from(audioData, 'base64');
       this.connection.send(audioBuffer);
     } catch (error) {
       console.error('Error sending audio to Deepgram:', error);
