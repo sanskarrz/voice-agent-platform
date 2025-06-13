@@ -183,11 +183,14 @@ wss.on('connection', (ws) => {
   break;
         
       case 'media':
-        if (conversationManager) {
-          // Forward audio to Deepgram
-          conversationManager.processAudio(msg.media.payload);
-        }
-        break;
+  if (conversationManager) {
+    // Log that we're receiving audio
+    console.log('Received audio from Twilio');
+    conversationManager.processAudio(msg.media.payload);
+  } else {
+    console.log('No conversation manager for audio');
+  }
+  break;
         
       case 'stop':
         if (conversationManager) {

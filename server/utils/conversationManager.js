@@ -177,11 +177,22 @@ export class ConversationManager extends EventEmitter {
   }
   
   processAudio(base64Audio) {
-    // Forward audio to Deepgram
-    if (this.deepgramService && this.deepgramService.isConnected) {
-      this.deepgramService.sendAudio(base64Audio);
+  // Forward audio to Deepgram
+  if (this.deepgramService && this.deepgramService.isConnected) {
+    // Deepgram expects raw audio, not base64
+    const audioBuffer = Buffer.from(base64Audio, 'base64');
+    this.deepgramService.sendAudio(audioBuffer);
+    
+    // Log every 100th audio packet to avoid spam
+    if (!this.audioPacketCount) this.audioPacketCount = 0;
+    this.audioPacketCount++;
+    if (this.audioPacketCount % 100 === 0) {
+      console.log(`Processed ${this.audioPacketCount} audio packets`);
     }
+  } else {
+    console.error('Deepgram not connected');
   }
+}
   
   sendAudioToTwilio(audioData) {
   const mediaMessage = {

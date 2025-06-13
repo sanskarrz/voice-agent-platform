@@ -15,7 +15,7 @@ export class DeepgramService extends EventEmitter {
       // Use Nova-2 model for lowest latency
       this.connection = this.deepgram.listen.live({
         model: 'nova-2',
-        language: 'en-US',
+        language: 'en-IN',
         smart_format: true,
         encoding: 'mulaw',
         sample_rate: 8000,
@@ -45,6 +45,27 @@ export class DeepgramService extends EventEmitter {
           });
         }
       });
+
+      this.connection.on('transcript', (data) => {
+  console.log('Deepgram transcript event:', JSON.stringify(data));
+  
+  const transcript = data.channel.alternatives[0].transcript;
+  
+  if (transcript && transcript.trim() !== '') {
+    console.log(`User said: "${transcript}" (final: ${data.is_final})`);
+    this.emit('transcript', {
+      text: transcript,
+      isFinal: data.is_final,
+      confidence: data.channel.alternatives[0].confidence,
+      timestamp: Date.now()
+    });
+  }
+});
+
+this.connection.on('error', (error) => {
+  console.error('Deepgram error:', error);
+  this.emit('error', error);
+});
       
       this.connection.on('utterance_end', () => {
         this.emit('utterance_end');
@@ -71,16 +92,22 @@ export class DeepgramService extends EventEmitter {
     }
   }
   
-  sendAudio(audioData) {
-    if (this.connection && this.isConnected) {
-      // Convert base64 to buffer if needed
+ sendAudio(audioData) {
+  if (this.connection && this.isConnected) {
+    try {
+      // Make sure we're sending buffer data
       const audioBuffer = Buffer.isBuffer(audioData) 
         ? audioData 
         : Buffer.from(audioData, 'base64');
-        
+      
       this.connection.send(audioBuffer);
+    } catch (error) {
+      console.error('Error sending audio to Deepgram:', error);
     }
+  } else {
+    console.error('Cannot send audio - Deepgram not connected');
   }
+}
   
   async disconnect() {
     if (this.connection) {
