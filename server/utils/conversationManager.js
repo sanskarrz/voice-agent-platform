@@ -119,36 +119,49 @@ export class ConversationManager extends EventEmitter {
   }
   
   async speak(text) {
-    if (!text || text.trim().length === 0) return;
+  if (!text || text.trim().length === 0) return;
+  
+  console.log(`Speaking: ${text}`);
+  
+  const playbackId = Date.now().toString();
+  this.currentPlaybackId = playbackId;
+  this.isSpeaking = true;
+  
+  try {
+    // Generate speech
+    const result = await this.elevenLabsService.generateSpeech(text);
     
-    console.log(`Speaking: ${text}`);
+    if (this.shouldInterrupt || this.currentPlaybackId !== playbackId) {
+      console.log('Interrupted, not sending audio');
+      return;
+    }
     
-    const playbackId = Date.now().toString();
-    this.currentPlaybackId = playbackId;
-    this.isSpeaking = true;
+    // Send audio in chunks to Twilio
+    // Twilio expects base64-encoded mulaw audio
+    const audioBuffer = result.audioBuffer;
+    const chunkSize = 20000; // Send in smaller chunks
     
-    try {
-      // Generate speech
-      const result = await this.elevenLabsService.generateSpeech(text);
+    for (let i = 0; i < audioBuffer.length; i += chunkSize) {
+      if (this.shouldInterrupt || this.currentPlaybackId !== playbackId) break;
       
-      if (this.shouldInterrupt || this.currentPlaybackId !== playbackId) {
-        console.log('Interrupted, not sending audio');
-        return;
-      }
+      const chunk = audioBuffer.slice(i, Math.min(i + chunkSize, audioBuffer.length));
+      const base64Chunk = chunk.toString('base64');
       
-      // Convert to base64 for Twilio
-      const base64Audio = result.audioBuffer.toString('base64');
-      this.sendAudioToTwilio(base64Audio);
+      this.sendAudioToTwilio(base64Chunk);
       
-    } catch (error) {
-      console.error('TTS error:', error);
-    } finally {
-      if (this.currentPlaybackId === playbackId) {
-        this.isSpeaking = false;
-        this.currentPlaybackId = null;
-      }
+      // Small delay between chunks
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    
+  } catch (error) {
+    console.error('TTS error:', error);
+  } finally {
+    if (this.currentPlaybackId === playbackId) {
+      this.isSpeaking = false;
+      this.currentPlaybackId = null;
     }
   }
+}
   
   handleInterruption() {
     console.log('Handling interruption');
@@ -171,20 +184,21 @@ export class ConversationManager extends EventEmitter {
   }
   
   sendAudioToTwilio(audioData) {
-    const mediaMessage = {
-      event: 'media',
-      streamSid: this.streamSid,
-      media: {
-        payload: audioData
-      }
-    };
-    
-    if (this.ws && this.ws.readyState === 1) {
-      this.ws.send(JSON.stringify(mediaMessage));
-    } else {
-      console.error('WebSocket not ready for sending audio');
+  const mediaMessage = {
+    event: 'media',
+    streamSid: this.streamSid,
+    media: {
+      payload: audioData
     }
+  };
+  
+  if (this.ws && this.ws.readyState === 1) {
+    this.ws.send(JSON.stringify(mediaMessage));
+    console.log('Sent audio chunk to Twilio');
+  } else {
+    console.error('WebSocket not ready for sending audio');
   }
+}
   
   clearTwilioAudio() {
     const clearMessage = {

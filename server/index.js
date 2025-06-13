@@ -105,7 +105,7 @@ app.post('/api/call/end', async (req, res) => {
 // Twilio WebSocket endpoint
 app.post('/twilio/stream', (req, res) => {
   const host = req.headers.host;
-  const protocol = req.headers['x-forwarded-proto'] === 'https' ? 'wss' : 'ws';
+  const protocol = host.includes('localhost') ? 'ws' : 'wss';
   
   res.set('Content-Type', 'text/xml');
   res.send(`
@@ -113,7 +113,7 @@ app.post('/twilio/stream', (req, res) => {
       <Start>
         <Stream url="${protocol}://${host}/media-stream" />
       </Start>
-      <Say>Connected to AI assistant. Please wait...</Say>
+      <Say voice="alice">Hello! I'm your AI assistant. Say something and I'll respond.</Say>
       <Pause length="60" />
     </Response>
   `);
