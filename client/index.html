@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Agent Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .container {
+            flex: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            width: 100%;
+        }
+        
+        .card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            margin-bottom: 1.5rem;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #ccc;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .form-group small {
+            display: block;
+            margin-top: 0.25rem;
+            color: #666;
+            font-size: 0.875rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #f93b1d 0%, #d62839 100%);
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .status-item {
+            background: #0a0a0a;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #666;
+        }
+        
+        .status-indicator.active {
+            background: #10b981;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+        
+        .call-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+        
+        .call-controls .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .metric-card {
+            background: #0a0a0a;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid #333;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .metric-label {
+            color: #666;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            transform: translateX(400px);
+            transition: transform 0.3s;
+            z-index: 1000;
+        }
+        
+        .toast.show {
+            transform: translateX(0);
+        }
+        
+        .toast.success {
+            border-color: #10b981;
+        }
+        
+        .toast.error {
+            border-color: #f93b1d;
+        }
+        
+        .logs {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 1rem;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.5rem;
+            opacity: 0.8;
+        }
+        
+        .log-entry.error {
+            color: #f93b1d;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .calling {
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎙️ AI Voice Agent Platform</h1>
+        <p>Ultra-low latency voice conversations powered by AI</p>
+    </div>
+    
+    <div class="container">
+        <!-- API Configuration -->
+        <div class="card">
+            <h2>🔑 API Configuration</h2>
+            <form id="apiForm">
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span>Twilio</span>
+                        <span class="status-indicator" id="twilioStatus"></span>
+                    </div>
+                    <div class="status-item">
+                        <span>Deepgram</span>
+                        <span class="status-indicator" id="deepgramStatus"></span>
+                    </div>
+                    <div class="status-item">
+                        <span>OpenAI/Groq</span>
+                        <span class="status-indicator" id="openaiStatus"></span>
+                    </div>
+                    <div class="status-item">
+                        <span>ElevenLabs</span>
+                        <span class="status-indicator" id="elevenLabsStatus"></span>
+                    </div>
+                </div>
+                
+                <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Twilio Configuration</h3>
+                <div class="form-group">
+                    <label>Account SID</label>
+                    <input type="text" id="twilioAccountSid" placeholder="ACxxxxxxxxxxxxx">
+                </div>
+                <div class="form-group">
+                    <label>Auth Token</label>
+                    <input type="password" id="twilioAuthToken" placeholder="Your auth token">
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" id="twilioPhoneNumber" placeholder="+1234567890">
+                    <small>Your Twilio phone number (with country code)</small>
+                </div>
+                
+                <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Deepgram Configuration</h3>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" id="deepgramApiKey" placeholder="Your Deepgram API key">
+                </div>
+                
+                <h3 style="margin-top: 2rem; margin-bottom: 1rem;">LLM Configuration</h3>
+                <div class="form-group">
+                    <label>OpenAI API Key</label>
+                    <input type="password" id="openaiApiKey" placeholder="sk-xxxxxxxxxxxxx">
+                    <small>For GPT-4o-mini (or use Groq for faster responses)</small>
+                </div>
+                
+                <h3 style="margin-top: 2rem; margin-bottom: 1rem;">ElevenLabs Configuration</h3>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" id="elevenLabsApiKey" placeholder="Your ElevenLabs API key">
+                </div>
+                <div class="form-group">
+                    <label>Voice ID (Optional)</label>
+                    <input type="text" id="elevenLabsVoiceId" placeholder="Leave empty for default voice">
+                </div>
+                
+                <button type="submit" class="btn">
+                    <span>💾</span> Save Configuration
+                </button>
+            </form>
+        </div>
+        
+        <!-- Call Controls -->
+        <div class="card">
+            <h2>📞 Call Controls</h2>
+            <div class="form-group">
+                <label>System Prompt</label>
+                <textarea id="systemPrompt" rows="3" placeholder="You are a helpful AI assistant...">You are a helpful AI assistant on a phone call. Be concise, natural, and conversational. Respond quickly and avoid long explanations.</textarea>
+            </div>
+            
+            <div class="call-controls">
+                <div class="form-group">
+                    <label>Phone Number to Call</label>
+                    <input type="tel" id="phoneNumber" placeholder="+1234567890">
+                </div>
+                <button id="startCallBtn" class="btn">
+                    <span>📞</span> Start Call
+                </button>
+                <button id="endCallBtn" class="btn btn-danger" disabled>
+                    <span>📵</span> End Call
+                </button>
+            </div>
+        </div>
+        
+        <!-- Metrics -->
+        <div class="card">
+            <h2>📊 Real-time Metrics</h2>
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-value" id="avgLatency">-</div>
+                    <div class="metric-label">Avg Response Time</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="turnCount">0</div>
+                    <div class="metric-label">Conversation Turns</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="callDuration">00:00</div>
+                    <div class="metric-label">Call Duration</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="activeCall">-</div>
+                    <div class="metric-label">Active Call</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Logs -->
+        <div class="card">
+            <h2>📝 Activity Logs</h2>
+            <div class="logs" id="logs">
+                <div class="log-entry">System ready. Configure your API keys to begin.</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast notifications -->
+    <div id="toast" class="toast"></div>
+    
+    <script>
+        // State management
+        let currentCallSid = null;
+        let callStartTime = null;
+        let callDurationInterval = null;
+        
+        // Elements
+        const apiForm = document.getElementById('apiForm');
+        const startCallBtn = document.getElementById('startCallBtn');
+        const endCallBtn = document.getElementById('endCallBtn');
+        const logs = document.getElementById('logs');
+        const toast = document.getElementById('toast');
+        
+        // Load saved API keys
+        loadSavedKeys();
+        
+        // Check API status on load
+        checkApiStatus();
+        
+        // Form submission
+        apiForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const apiKeys = {
+                twilio: {
+                    accountSid: document.getElementById('twilioAccountSid').value,
+                    authToken: document.getElementById('twilioAuthToken').value,
+                    phoneNumber: document.getElementById('twilioPhoneNumber').value
+                },
+                deepgram: {
+                    apiKey: document.getElementById('deepgramApiKey').value
+                },
+                openai: {
+                    apiKey: document.getElementById('openaiApiKey').value
+                },
+                elevenLabs: {
+                    apiKey: document.getElementById('elevenLabsApiKey').value,
+                    voiceId: document.getElementById('elevenLabsVoiceId').value
+                }
+            };
+            
+            try {
+                const response = await fetch('/api/keys', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(apiKeys)
+                });
+                
+                if (response.ok) {
+                    showToast('API keys saved successfully!', 'success');
+                    saveKeysLocally(apiKeys);
+                    checkApiStatus();
+                    addLog('API keys updated');
+                } else {
+                    throw new Error('Failed to save keys');
+                }
+            } catch (error) {
+                showToast('Error saving API keys', 'error');
+                addLog('Error: ' + error.message, true);
+            }
+        });
+        
+        // Start call
+        startCallBtn.addEventListener('click', async () => {
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            const systemPrompt = document.getElementById('systemPrompt').value;
+            
+            if (!phoneNumber) {
+                showToast('Please enter a phone number', 'error');
+                return;
+            }
+            
+            startCallBtn.disabled = true;
+            startCallBtn.classList.add('calling');
+            
+            try {
+                const response = await fetch('/api/call/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ toNumber: phoneNumber, systemPrompt })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    currentCallSid = data.callSid;
+                    callStartTime = Date.now();
+                    
+                    showToast('Call initiated!', 'success');
+                    addLog(`Call started to ${phoneNumber}`);
+                    
+                    endCallBtn.disabled = false;
+                    document.getElementById('activeCall').textContent = phoneNumber;
+                    
+                    // Start duration timer
+                    callDurationInterval = setInterval(updateCallDuration, 1000);
+                    
+                    // Start polling for metrics
+                    startMetricsPolling();
+                } else {
+                    throw new Error('Failed to start call');
+                }
+            } catch (error) {
+                showToast('Error starting call', 'error');
+                addLog('Error: ' + error.message, true);
+            } finally {
+                startCallBtn.disabled = false;
+                startCallBtn.classList.remove('calling');
+            }
+        });
+        
+        // End call
+        endCallBtn.addEventListener('click', async () => {
+            if (!currentCallSid) return;
+            
+            endCallBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/call/end', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ callSid: currentCallSid })
+                });
+                
+                if (response.ok) {
+                    showToast('Call ended', 'success');
+                    addLog('Call ended');
+                    resetCallState();
+                } else {
+                    throw new Error('Failed to end call');
+                }
+            } catch (error) {
+                showToast('Error ending call', 'error');
+                addLog('Error: ' + error.message, true);
+            } finally {
+                endCallBtn.disabled = false;
+            }
+        });
+        
+        // Helper functions
+        function showToast(message, type = 'success') {
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+        
+        function addLog(message, isError = false) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry' + (isError ? ' error' : '');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+        
+        function updateCallDuration() {
+            if (!callStartTime) return;
+            
+            const duration = Math.floor((Date.now() - callStartTime) / 1000);
+            const minutes = Math.floor(duration / 60);
+            const seconds = duration % 60;
+            
+            document.getElementById('callDuration').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        function resetCallState() {
+            currentCallSid = null;
+            callStartTime = null;
+            
+            if (callDurationInterval) {
+                clearInterval(callDurationInterval);
+                callDurationInterval = null;
+            }
+            
+            document.getElementById('activeCall').textContent = '-';
+            document.getElementById('callDuration').textContent = '00:00';
+            endCallBtn.disabled = true;
+        }
+        
+        async function checkApiStatus() {
+            try {
+                const response = await fetch('/api/keys/status');
+                const status = await response.json();
+                
+                document.getElementById('twilioStatus').classList.toggle('active', status.twilio);
+                document.getElementById('deepgramStatus').classList.toggle('active', status.deepgram);
+                document.getElementById('openaiStatus').classList.toggle('active', status.openai);
+                document.getElementById('elevenLabsStatus').classList.toggle('active', status.elevenLabs);
+            } catch (error) {
+                console.error('Error checking API status:', error);
+            }
+        }
+        
+        function saveKeysLocally(keys) {
+            // Save non-sensitive parts for UI persistence
+            localStorage.setItem('voiceAgentConfig', JSON.stringify({
+                twilioPhoneNumber: keys.twilio.phoneNumber,
+                elevenLabsVoiceId: keys.elevenLabs.voiceId
+            }));
+        }
+        
+        function loadSavedKeys() {
+            const saved = localStorage.getItem('voiceAgentConfig');
+            if (saved) {
+                const config = JSON.parse(saved);
+                document.getElementById('twilioPhoneNumber').value = config.twilioPhoneNumber || '';
+                document.getElementById('elevenLabsVoiceId').value = config.elevenLabsVoiceId || '';
+            }
+        }
+        
+        function startMetricsPolling() {
+            // Poll metrics every 2 seconds during call
+            const metricsInterval = setInterval(async () => {
+                if (!currentCallSid) {
+                    clearInterval(metricsInterval);
+                    return;
+                }
+                
+                // In a real implementation, fetch metrics from server
+                // For now, just show placeholder updates
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
