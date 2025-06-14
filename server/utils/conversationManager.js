@@ -176,7 +176,7 @@ export class ConversationManager extends EventEmitter {
     this.shouldInterrupt = false;
   }
   
-  processAudio(base64Audio) {
+ processAudio(base64Audio) {
   // Forward audio to Deepgram
   if (this.deepgramService && this.deepgramService.isConnected) {
     // Deepgram expects the base64 audio as-is from Twilio (it's already mulaw)
@@ -189,7 +189,11 @@ export class ConversationManager extends EventEmitter {
       console.log(`Processed ${this.audioPacketCount} audio packets`);
     }
   } else {
-    console.error('Deepgram not connected');
+    // Only log this once
+    if (!this.deepgramNotConnectedLogged) {
+      console.error('Deepgram not connected');
+      this.deepgramNotConnectedLogged = true;
+    }
   }
 }
   

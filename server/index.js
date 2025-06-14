@@ -184,10 +184,10 @@ wss.on('connection', (ws) => {
         
       case 'media':
   if (conversationManager) {
-    // Log that we're receiving audio
-    console.log('Received audio from Twilio');
+    // Remove this line: console.log('Received audio from Twilio');
     conversationManager.processAudio(msg.media.payload);
   } else {
+    // Keep this one as it's important for debugging
     console.log('No conversation manager for audio');
   }
   break;
