@@ -118,7 +118,7 @@ export class ConversationManager extends EventEmitter {
     }
   }
   
-  async speak(text) {
+async speak(text) {
   if (!text || text.trim().length === 0) return;
   
   console.log(`Speaking: ${text}`);
@@ -128,7 +128,7 @@ export class ConversationManager extends EventEmitter {
   this.isSpeaking = true;
   
   try {
-    // Generate speech
+    // Generate speech with mulaw conversion
     const result = await this.elevenLabsService.generateSpeech(text);
     
     if (this.shouldInterrupt || this.currentPlaybackId !== playbackId) {
@@ -136,22 +136,22 @@ export class ConversationManager extends EventEmitter {
       return;
     }
     
-    // Send audio in chunks to Twilio
-    // Twilio expects base64-encoded mulaw audio
-    const audioBuffer = result.audioBuffer;
-    const chunkSize = 20000; // Send in smaller chunks
+    // Send mulaw audio to Twilio in base64
+    const base64Audio = result.audioBuffer.toString('base64');
     
-    for (let i = 0; i < audioBuffer.length; i += chunkSize) {
+    // Send in smaller chunks for smoother playback
+    const chunkSize = 640; // 80ms of audio at 8kHz
+    for (let i = 0; i < base64Audio.length; i += chunkSize) {
       if (this.shouldInterrupt || this.currentPlaybackId !== playbackId) break;
       
-      const chunk = audioBuffer.slice(i, Math.min(i + chunkSize, audioBuffer.length));
-      const base64Chunk = chunk.toString('base64');
-      
-      this.sendAudioToTwilio(base64Chunk);
+      const chunk = base64Audio.slice(i, Math.min(i + chunkSize, base64Audio.length));
+      this.sendAudioToTwilio(chunk);
       
       // Small delay between chunks
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
+    
+    console.log('Finished sending audio to Twilio');
     
   } catch (error) {
     console.error('TTS error:', error);

@@ -1,100 +1,70 @@
 // server/services/elevenLabsService.js
 import axios from 'axios';
 import WebSocket from 'ws';
+import { AudioConverter } from '../utils/audioConverter.js';
 
 export class ElevenLabsService {
   constructor(config) {
     this.apiKey = config.apiKey;
     this.voiceId = config.voiceId || 'EXAVITQu4vr4xnSDxMaL'; // Default to Sarah voice
-    this.wsConnection = null;
-    this.isConnected = false;
   }
   
-  // Stream TTS for lowest latency
-  async streamTTS(text, onAudioChunk) {
+  // Use REST API with PCM output for Twilio compatibility
+  async generateSpeech(text) {
     const startTime = Date.now();
     
     try {
-      // Use turbo v2.5 model for lowest latency
-      const url = `wss://api.elevenlabs.io/v1/text-to-speech/${this.voiceId}/stream-input?model_id=eleven_turbo_v2_5&optimize_streaming_latency=4`;
+      console.log(`Generating speech for: "${text}"`);
       
-      return new Promise((resolve, reject) => {
-        const ws = new WebSocket(url, {
+      const response = await axios.post(
+        `https://api.elevenlabs.io/v1/text-to-speech/${this.voiceId}`,
+        {
+          text,
+          model_id: 'eleven_turbo_v2_5',
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.8,
+            style: 0.0,
+            use_speaker_boost: true
+          }
+        },
+        {
           headers: {
             'xi-api-key': this.apiKey,
-          }
-        });
-        
-        let audioChunks = [];
-        let isFirstChunk = true;
-        
-        ws.on('open', () => {
-          // Send text input
-          ws.send(JSON.stringify({
-            text: text,
-            voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75,
-              style: 0.0,
-              use_speaker_boost: true
-            },
-            generation_config: {
-              chunk_length_schedule: [50] // Smaller chunks for lower latency
-            }
-          }));
-          
-          // Send EOS
-          ws.send(JSON.stringify({ text: '' }));
-        });
-        
-        ws.on('message', (data) => {
-          const response = JSON.parse(data.toString());
-          
-          if (response.audio) {
-            const audioChunk = Buffer.from(response.audio, 'base64');
-            audioChunks.push(audioChunk);
-            
-            if (isFirstChunk) {
-              console.log(`TTS first chunk latency: ${Date.now() - startTime}ms`);
-              isFirstChunk = false;
-            }
-            
-            // Stream chunks immediately
-            if (onAudioChunk) {
-              onAudioChunk(audioChunk, response);
-            }
-          }
-          
-          if (response.isFinal) {
-            ws.close();
-          }
-        });
-        
-        ws.on('close', () => {
-          const totalLatency = Date.now() - startTime;
-          console.log(`TTS total time: ${totalLatency}ms`);
-          
-          resolve({
-            audioBuffer: Buffer.concat(audioChunks),
-            latency: totalLatency,
-            chunks: audioChunks.length
-          });
-        });
-        
-        ws.on('error', (error) => {
-          console.error('ElevenLabs WebSocket error:', error);
-          reject(error);
-        });
-      });
+            'Content-Type': 'application/json',
+            'Accept': 'audio/pcm' // Request PCM format
+          },
+          responseType: 'arraybuffer'
+        }
+      );
+      
+      const latency = Date.now() - startTime;
+      console.log(`TTS latency: ${latency}ms`);
+      
+      // Convert PCM to mulaw
+      const pcmBuffer = Buffer.from(response.data);
+      const mulawBuffer = AudioConverter.pcm16ToMulaw(pcmBuffer);
+      
+      return {
+        audioBuffer: mulawBuffer,
+        latency
+      };
       
     } catch (error) {
-      console.error('ElevenLabs error:', error);
-      throw error;
+      console.error('ElevenLabs error:', error.response?.data || error.message);
+      
+      // Fallback: Generate silence
+      const silenceBuffer = Buffer.alloc(8000); // 1 second of silence
+      return {
+        audioBuffer: silenceBuffer,
+        error: true,
+        latency: Date.now() - startTime
+      };
     }
   }
   
-  // Alternative REST API method (higher latency but more reliable)
-  async generateSpeech(text) {
+  // For even lower latency, use streaming (optional)
+  async streamTTS(text, onAudioChunk) {
     const startTime = Date.now();
     
     try {
@@ -105,39 +75,52 @@ export class ElevenLabsService {
           model_id: 'eleven_turbo_v2_5',
           voice_settings: {
             stability: 0.5,
-            similarity_boost: 0.75,
-            style: 0.0,
-            use_speaker_boost: true
-          }
+            similarity_boost: 0.8
+          },
+          output_format: 'pcm_16000' // PCM format for easier conversion
         },
         {
           headers: {
             'xi-api-key': this.apiKey,
-            'Content-Type': 'application/json',
-            'Accept': 'audio/mpeg'
+            'Content-Type': 'application/json'
           },
-          responseType: 'arraybuffer'
+          responseType: 'stream'
         }
       );
       
-      const latency = Date.now() - startTime;
-      console.log(`TTS REST latency: ${latency}ms`);
+      let chunks = [];
       
-      return {
-        audioBuffer: Buffer.from(response.data),
-        latency
-      };
+      response.data.on('data', (chunk) => {
+        chunks.push(chunk);
+        
+        // Process chunks when we have enough data
+        if (chunks.length > 5) {
+          const audioBuffer = Buffer.concat(chunks);
+          chunks = [];
+          
+          // Convert to mulaw and send
+          const mulawBuffer = AudioConverter.pcm16ToMulaw(audioBuffer);
+          if (onAudioChunk) {
+            onAudioChunk(mulawBuffer);
+          }
+        }
+      });
+      
+      response.data.on('end', () => {
+        if (chunks.length > 0) {
+          const audioBuffer = Buffer.concat(chunks);
+          const mulawBuffer = AudioConverter.pcm16ToMulaw(audioBuffer);
+          if (onAudioChunk) {
+            onAudioChunk(mulawBuffer);
+          }
+        }
+        
+        console.log(`TTS streaming completed in ${Date.now() - startTime}ms`);
+      });
       
     } catch (error) {
-      console.error('ElevenLabs REST error:', error);
+      console.error('ElevenLabs streaming error:', error);
       throw error;
     }
-  }
-  
-  // Convert audio format for Twilio (to mulaw)
-  convertToMulaw(audioBuffer) {
-    // This is a simplified conversion - in production, use a proper audio library
-    // Twilio expects 8kHz mulaw audio
-    return audioBuffer.toString('base64');
   }
 }
