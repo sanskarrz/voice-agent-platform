@@ -128,30 +128,25 @@ async speak(text) {
   this.isSpeaking = true;
   
   try {
-    // Generate speech with mulaw conversion
-    const result = await this.elevenLabsService.generateSpeech(text);
+    // For now, use Twilio's Say verb instead of ElevenLabs
+    // This will help us verify the system works
+    const sayMessage = {
+      event: 'say',
+      streamSid: this.streamSid,
+      say: {
+        text: text,
+        voice: 'alice', // or 'man', 'woman', etc.
+        language: 'en-US'
+      }
+    };
     
-    if (this.shouldInterrupt || this.currentPlaybackId !== playbackId) {
-      console.log('Interrupted, not sending audio');
-      return;
+    if (this.ws && this.ws.readyState === 1) {
+      this.ws.send(JSON.stringify(sayMessage));
+      console.log('Sent Say command to Twilio');
     }
     
-    // Send mulaw audio to Twilio in base64
-    const base64Audio = result.audioBuffer.toString('base64');
-    
-    // Send in smaller chunks for smoother playback
-    const chunkSize = 640; // 80ms of audio at 8kHz
-    for (let i = 0; i < base64Audio.length; i += chunkSize) {
-      if (this.shouldInterrupt || this.currentPlaybackId !== playbackId) break;
-      
-      const chunk = base64Audio.slice(i, Math.min(i + chunkSize, base64Audio.length));
-      this.sendAudioToTwilio(chunk);
-      
-      // Small delay between chunks
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
-    
-    console.log('Finished sending audio to Twilio');
+    // Simulate speaking time
+    await new Promise(resolve => setTimeout(resolve, text.length * 50));
     
   } catch (error) {
     console.error('TTS error:', error);
