@@ -114,7 +114,6 @@ app.post('/twilio/stream', (req, res) => {
         <Stream url="${protocol}://${host}/media-stream" />
       </Start>
       <Say voice="alice">Hello! I'm your AI assistant. Please start speaking after the beep.</Say>
-      <Play>https://www.soundjay.com/misc/sounds/bell-ringing-05.wav</Play>
       <Pause length="60" />
     </Response>
   `);

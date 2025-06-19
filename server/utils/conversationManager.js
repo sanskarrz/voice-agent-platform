@@ -128,25 +128,38 @@ async speak(text) {
   this.isSpeaking = true;
   
   try {
-    // For now, use Twilio's Say verb instead of ElevenLabs
-    // This will help us verify the system works
-    const sayMessage = {
-      event: 'say',
-      streamSid: this.streamSid,
-      say: {
-        text: text,
-        voice: 'alice', // or 'man', 'woman', etc.
-        language: 'en-US'
-      }
-    };
+    // Generate a simple beep tone as mulaw audio for testing
+    // This will confirm audio playback works
+    const sampleRate = 8000;
+    const duration = 0.5; // 500ms beep
+    const frequency = 440; // A4 note
+    const samples = sampleRate * duration;
     
-    if (this.ws && this.ws.readyState === 1) {
-      this.ws.send(JSON.stringify(sayMessage));
-      console.log('Sent Say command to Twilio');
+    const audioBuffer = Buffer.alloc(samples);
+    
+    // Generate a sine wave
+    for (let i = 0; i < samples; i++) {
+      const t = i / sampleRate;
+      const sample = Math.sin(2 * Math.PI * frequency * t) * 0.5;
+      // Convert to mulaw
+      audioBuffer[i] = this.linearToMulaw(sample * 32767);
     }
     
-    // Simulate speaking time
-    await new Promise(resolve => setTimeout(resolve, text.length * 50));
+    // Send the audio in chunks
+    const chunkSize = 160; // 20ms at 8kHz
+    for (let i = 0; i < audioBuffer.length; i += chunkSize) {
+      if (this.shouldInterrupt || this.currentPlaybackId !== playbackId) break;
+      
+      const chunk = audioBuffer.slice(i, Math.min(i + chunkSize, audioBuffer.length));
+      const base64Chunk = chunk.toString('base64');
+      
+      this.sendAudioToTwilio(base64Chunk);
+      
+      // 20ms delay between chunks
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    
+    console.log('Sent beep audio to Twilio');
     
   } catch (error) {
     console.error('TTS error:', error);
@@ -156,6 +169,22 @@ async speak(text) {
       this.currentPlaybackId = null;
     }
   }
+}
+
+// Helper function to convert linear PCM to mulaw
+linearToMulaw(sample) {
+  const MULAW_MAX = 0x1FFF;
+  const MULAW_BIAS = 33;
+  
+  let sign = (sample >> 8) & 0x80;
+  if (sign !== 0) sample = -sample;
+  
+  sample = Math.min(sample + MULAW_BIAS, MULAW_MAX);
+  
+  const exponent = Math.floor(Math.log2(sample) - 5);
+  const mantissa = (sample >> (exponent + 3)) & 0x0F;
+  
+  return ~(sign | (exponent << 4) | mantissa) & 0xFF;
 }
   
   handleInterruption() {
@@ -192,7 +221,7 @@ async speak(text) {
   }
 }
   
-  sendAudioToTwilio(audioData) {
+ sendAudioToTwilio(audioData) {
   const mediaMessage = {
     event: 'media',
     streamSid: this.streamSid,
