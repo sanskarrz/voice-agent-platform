@@ -128,38 +128,45 @@ async speak(text) {
   this.isSpeaking = true;
   
   try {
-    // Generate a simple beep tone as mulaw audio for testing
-    // This will confirm audio playback works
-    const sampleRate = 8000;
-    const duration = 0.5; // 500ms beep
-    const frequency = 440; // A4 note
-    const samples = sampleRate * duration;
+    // For testing, use Twilio's Play verb with a public audio file
+    const playMessage = {
+      event: 'play',
+      streamSid: this.streamSid,
+      play: {
+        url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
+      }
+    };
     
-    const audioBuffer = Buffer.alloc(samples);
-    
-    // Generate a sine wave
-    for (let i = 0; i < samples; i++) {
-      const t = i / sampleRate;
-      const sample = Math.sin(2 * Math.PI * frequency * t) * 0.5;
-      // Convert to mulaw
-      audioBuffer[i] = this.linearToMulaw(sample * 32767);
+    if (this.ws && this.ws.readyState === 1) {
+      this.ws.send(JSON.stringify(playMessage));
+      console.log('Sent play command to Twilio');
     }
     
-    // Send the audio in chunks
-    const chunkSize = 160; // 20ms at 8kHz
-    for (let i = 0; i < audioBuffer.length; i += chunkSize) {
-      if (this.shouldInterrupt || this.currentPlaybackId !== playbackId) break;
-      
-      const chunk = audioBuffer.slice(i, Math.min(i + chunkSize, audioBuffer.length));
-      const base64Chunk = chunk.toString('base64');
-      
-      this.sendAudioToTwilio(base64Chunk);
-      
-      // 20ms delay between chunks
-      await new Promise(resolve => setTimeout(resolve, 20));
-    }
+    // For actual TTS, we'll need to:
+    // 1. Generate audio with ElevenLabs
+    // 2. Upload it to a public URL (or use base64 data URI)
+    // 3. Play it using the play verb
     
-    console.log('Sent beep audio to Twilio');
+    // For now, let's also try using Twilio's Say verb as a fallback
+    setTimeout(() => {
+      const sayMessage = {
+        event: 'say',
+        streamSid: this.streamSid,
+        say: {
+          text: text,
+          voice: 'Polly.Joanna', // Try different voice
+          language: 'en-US'
+        }
+      };
+      
+      if (this.ws && this.ws.readyState === 1) {
+        this.ws.send(JSON.stringify(sayMessage));
+        console.log('Sent say command to Twilio');
+      }
+    }, 500);
+    
+    // Simulate speaking time
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
   } catch (error) {
     console.error('TTS error:', error);
